@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Operations Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+    <style>
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="bg-success text-white py-4 shadow">
+        <div class="container d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
+            <div>
+                <p class="small text-warning text-uppercase fw-bold mb-1">Farm operations</p>
+                <h1 class="mb-1">Smart Dashboard</h1>
+                <p class="mb-0">View daily production performance across the farm.</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container py-4">
+        <div id="errorBanner" class="alert alert-warning d-none" role="alert"></div>
+
+        <form id="filterForm" class="row g-3 align-items-end bg-light border rounded p-3 mb-4">
+            <div class="col-md-4">
+                <label for="productionBlock" class="form-label">Block</label>
+                <select id="productionBlock" name="operationBlock" class="form-select" required>
+                    <option value="all" selected>All blocks</option>
+                    <option value="Block 1">Block 1</option>
+                    <option value="Block 2">Block 2</option>
+                    <option value="Block 3">Block 3</option>
+                    <option value="Block 4">Block 4</option>
+                    <option value="Block 5">Block 5</option>
+                    <option value="Block 6">Block 6</option>
+                    <option value="Block 7">Block 7</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="DateHarvested" class="form-label">Date</label>
+                <input type="date" id="DateHarvested" name="DateHarvested" class="form-control">
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-success fw-bold">Apply</button>
+            </div>
+            <div class="col-md text-md-end small text-secondary">
+                <span id="liveDot" class="badge rounded-pill text-bg-secondary">Connecting…</span>
+                <span id="lastUpdated" class="ms-2"></span>
+            </div>
+        </form>
+
+        <section class="mb-5" aria-labelledby="kpi-heading">
+            <p class="small text-success text-uppercase fw-bold mb-1">Daily status</p>
+            <h2 class="h3 mb-3" id="kpi-heading">Key Performance Indicators</h2>
+            <div class="row g-3">
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5" id="harvestKpi">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Crates Harvested Today</h3>
+                                <span class="badge" id="harvestStatus" role="status"></span>
+                            </div>
+                            <p class="display-6 fw-bold my-3"><span id="harvestValue">--</span> <span class="fs-6 text-secondary">crates</span></p>
+                            <p class="text-secondary mb-0">Target: at least 100 crates per day</p>
+                        </div>
+                    </div>
+                </article>
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5" id="transportKpi">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Transport Awaiting</h3>
+                                <span class="badge" id="transportStatus" role="status"></span>
+                            </div>
+                            <p class="display-6 fw-bold my-3"><span id="transportValue">--</span> <span class="fs-6 text-secondary">crates</span></p>
+                            <p class="text-secondary mb-0">Crates harvested but not yet dispatched</p>
+                        </div>
+                    </div>
+                </article>
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5" id="shiftEndKpi">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Crates at Shift End</h3>
+                                <span class="badge" id="shiftEndStatus" role="status"></span>
+                            </div>
+                            <p class="display-6 fw-bold my-3"><span id="shiftEndValue">--</span> <span class="fs-6 text-secondary">crates</span></p>
+                            <p class="text-secondary mb-0">Crates harvested but not transported</p>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="charts-heading">
+            <p class="small text-success text-uppercase fw-bold mb-1">Production overview</p>
+            <h2 class="h3 mb-3" id="charts-heading">Harvest &amp; Logistics</h2>
+            <div class="row g-3">
+                <article class="col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="h5">Crates Harvested by Team</h3>
+                            <p class="text-secondary">Based on the Shift Overview table</p>
+                            <div class="chart-container">
+                                <canvas id="harvestChart" role="img"
+                                aria-label="Bar chart showing crates harvested by team from the Shift Overview table"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+                <article class="col-lg-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="h5">Crates by Destination</h3>
+                            <p class="text-secondary">Based on delivered crates in the Logistics Management table</p>
+                            <div class="chart-container">
+                                <canvas id="destinationChart" role="img"
+                                aria-label="Doughnut chart of delivered crates by destination from the Logistics Management table"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="shift-table-heading">
+            <h2 class="h3 mb-3" id="shift-table-heading">Shift Overview</h2>
+            <div class="card rounded-3 overflow-hidden shadow-sm">
+                <div class="table-responsive">
+                    <table id="shiftOverviewTable" class="table table-bordered table-striped align-middle mb-0">
+                        <thead class="table-success">
+                            <tr>
+                                <th scope="col">Shift Start</th>
+                                <th scope="col">Shift End</th>
+                                <th scope="col">Hours Worked</th>
+                                <th scope="col">Team Leader</th>
+                                <th scope="col">Operation Location</th>
+                                <th scope="col">Number of workers</th>
+                                <th scope="col">Total Crates Harvested</th>
+                                <th scope="col">Total Rejected Crates</th>
+                                <th scope="col">Number of Trees</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="operations-table-heading">
+            <h2 class="h3 mb-3" id="operations-table-heading">Operations Management</h2>
+            <div class="card rounded-3 overflow-hidden shadow-sm">
+                <div class="table-responsive">
+                    <table id="operationsTable" class="table table-bordered table-striped align-middle mb-0">
+                        <thead class="table-success">
+                            <tr>
+                                <th scope="col">Time</th>
+                                <th scope="col">Team Leader</th>
+                                <th scope="col">Operation Location</th>
+                                <th scope="col">Number of Workers</th>
+                                <th scope="col">Crates Harvested</th>
+                                <th scope="col">Number of Trees</th>
+                                <th scope="col">Rejected Crates</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="logistics-table-heading">
+            <h2 class="h3 mb-3" id="logistics-table-heading">Logistics Management</h2>
+            <div class="card rounded-3 overflow-hidden shadow-sm">
+                <div class="table-responsive">
+                    <table id="logisticsOverviewTable" class="table table-bordered table-striped align-middle mb-0">
+                        <thead class="table-success">
+                            <tr>
+                                <th scope="col">Time</th>
+                                <th scope="col">Trip Number</th>
+                                <th scope="col">Vehicle Type</th>
+                                <th scope="col">Vehicle Registration Number</th>
+                                <th scope="col">Driver Name</th>
+                                <th scope="col">Destination</th>
+                                <th scope="col">Number of Crates Initially Loaded</th>
+                                <th scope="col">Number of Crates at Destination</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="operational-notes-heading">
+            <h2 class="h3 mb-3" id="operational-notes-heading">Operational Notes</h2>
+            <div class="card rounded-3 overflow-hidden shadow-sm">
+                <div class="table-responsive">
+                    <table id="notesTable" class="table table-bordered table-striped align-middle mb-0">
+                        <thead class="table-success">
+                            <tr>
+                                <th scope="col">Total Crates at End of Shift</th>
+                                <th scope="col">Delays</th>
+                                <th scope="col">Additional Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+    <script>
+        const farmGreen = "#005333";
+        const farmGold = "#f9d000";
+        const TICK_MS = 5000;
+        const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
+
+        const pad = (n) => String(n).padStart(2, "0");
+        const toDateString = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayString = toDateString(new Date());
+
+        const dateInput = document.getElementById("DateHarvested");
+        const blockSelect = document.getElementById("productionBlock");
+        dateInput.value = todayString;
+
+        const harvestChart = new Chart(document.getElementById("harvestChart"), {
+            type: "bar",
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "Crates harvested",
+                    data: [],
+                    borderColor: farmGreen,
+                    backgroundColor: farmGreen,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: "y",
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (c) => `${c.parsed.x} crates` } }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: { display: true, text: "Crates" },
+                        grid: { color: "rgba(0, 83, 51, 0.08)" }
+                    },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+
+        const destinationChart = new Chart(document.getElementById("destinationChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Pack house", "Farm shed", "Other"],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [farmGreen, farmGold, "#83b899"],
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "62%",
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => {
+                                const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total ? (c.parsed / total * 100).toFixed(1) : "0.0";
+                                return `${c.label}: ${c.parsed} crates (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
+            const card = document.getElementById(cardId);
+            const status = document.getElementById(statusId);
+            const tone = isBottleneck ? "danger" : "success";
+            document.getElementById(valueId).textContent = Number(value).toLocaleString();
+            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
+            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
+            status.classList.remove("bg-success", "bg-danger");
+            status.classList.add(`bg-${tone}`);
+            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+        }
+
+        function fillTable(tableId, rows, columns, emptyText) {
+            const body = document.querySelector(`#${tableId} tbody`);
+            body.replaceChildren();
+            if (!rows.length) {
+                const tr = body.insertRow();
+                const td = tr.insertCell();
+                td.colSpan = columns.length;
+                td.className = "text-center text-secondary py-3";
+                td.textContent = emptyText;
+                return;
+            }
+            rows.forEach((row) => {
+                const tr = body.insertRow();
+                columns.forEach((col) => {
+                    const v = typeof col === "function" ? col(row) : row[col];
+                    tr.insertCell().textContent = (v === null || v === undefined || v === "") ? "-" : v;
+                });
+            });
+        }
+
+        function render(data) {
+            const k = data.kpis;
+            updateKpi("harvestKpi", "harvestValue", "harvestStatus", k.harvestedToday, k.harvestedToday < 100);
+            updateKpi("transportKpi", "transportValue", "transportStatus", k.awaitingTransport, k.awaitingTransport > 0);
+            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus", k.shiftEnd, k.shiftEnd > 0);
+
+            harvestChart.data.labels = data.harvestChart.labels;
+            harvestChart.data.datasets[0].data = data.harvestChart.values;
+            harvestChart.update();
+
+            destinationChart.data.labels = data.destinationChart.labels;
+            destinationChart.data.datasets[0].data = data.destinationChart.values;
+            destinationChart.update();
+
+            fillTable("shiftOverviewTable", data.shiftOverview,
+                ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
+                "No shifts recorded for this selection.");
+            fillTable("operationsTable", data.operations,
+                ["time", "leader", "block", "workers", "crates", "trees", "rejected"],
+                "No harvest entries for this selection.");
+            fillTable("logisticsOverviewTable", data.logistics,
+                ["time", "trip", "vehicle", "registration", "driver", "destination", "loaded", "delivered"],
+                "No trips recorded for this selection.");
+            fillTable("notesTable", data.notes,
+                ["endCrates", "delays", "remarks"],
+                "No operational notes for this selection.");
+        }
+
+        const errorBanner = document.getElementById("errorBanner");
+        const liveDot = document.getElementById("liveDot");
+        const lastUpdated = document.getElementById("lastUpdated");
+        let inFlight = false;
+
+        function showLive() {
+            errorBanner.classList.add("d-none");
+            liveDot.className = "badge rounded-pill text-bg-success";
+            liveDot.textContent = "Live";
+            lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        }
+
+        function showError(error) {
+            errorBanner.textContent = `Could not load dashboard data: ${error.message}`;
+            errorBanner.classList.remove("d-none");
+            liveDot.className = "badge rounded-pill text-bg-danger";
+            liveDot.textContent = "Offline";
+        }
+
+        async function fetchFromServer() {
+            const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
+            const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
+            let data;
+            try {
+                data = JSON.parse(await response.text());
+            } catch (e) {
+                throw new Error(`the server sent an error page (HTTP ${response.status}) instead of data. Check the Render logs.`);
+            }
+            if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
+            return data;
+        }
+
+        async function loadDashboardData() {
+            if (inFlight) return;
+            inFlight = true;
+            try {
+                render(await fetchFromServer());
+                showLive();
+            } catch (error) {
+                showError(error);
+            } finally {
+                inFlight = false;
+            }
+        }
+
+        document.getElementById("filterForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            loadDashboardData(true);
+        });
+        blockSelect.addEventListener("change", () => loadDashboardData(true));
+        dateInput.addEventListener("change", () => loadDashboardData(true));
+
+        setInterval(() => { if (!document.hidden) loadDashboardData(); }, TICK_MS);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
+
+        loadDashboardData(true);
+    </script>
+</body>
+</html>
