@@ -22,6 +22,10 @@
                 <h1 class="mb-1">Smart Dashboard</h1>
                 <p class="mb-0">View daily production performance across the farm.</p>
             </div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="/operations" class="btn btn-warning fw-bold">Operations</a>
+                <a href="/" class="btn btn-outline-light fw-bold">Home</a>
+            </div>
         </div>
     </header>
 
@@ -33,13 +37,13 @@
                 <label for="productionBlock" class="form-label">Block</label>
                 <select id="productionBlock" name="operationBlock" class="form-select" required>
                     <option value="all" selected>All blocks</option>
-                    <option value="Block 1">Block 1</option>
-                    <option value="Block 2">Block 2</option>
-                    <option value="Block 3">Block 3</option>
-                    <option value="Block 4">Block 4</option>
-                    <option value="Block 5">Block 5</option>
-                    <option value="Block 6">Block 6</option>
-                    <option value="Block 7">Block 7</option>
+                    <option value="Block1">Block 1</option>
+                    <option value="Block2">Block 2</option>
+                    <option value="Block3">Block 3</option>
+                    <option value="Block4">Block 4</option>
+                    <option value="Block5">Block 5</option>
+                    <option value="Block6">Block 6</option>
+                    <option value="Block7">Block 7</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -87,11 +91,11 @@
                     <div class="card h-100 border-start border-5" id="shiftEndKpi">
                         <div class="card-body">
                             <div class="d-flex align-items-center justify-content-between gap-2">
-                                <h3 class="h5 mb-0">Crates at Shift End</h3>
-                                <span class="badge" id="shiftEndStatus" role="status"></span>
+                                <h3 class="h5 mb-0">Harvest Rate</h3>
+                                <span class="badge bg-success" role="status">Live</span>
                             </div>
-                            <p class="display-6 fw-bold my-3"><span id="shiftEndValue">--</span> <span class="fs-6 text-secondary">crates</span></p>
-                            <p class="text-secondary mb-0">Crates harvested but not transported</p>
+                            <p class="display-6 fw-bold my-3"><span id="harvestRateValue">--</span> <span class="fs-6 text-secondary">crates/hr</span></p>
+                            <p class="text-secondary mb-0">Based on labor hours worked</p>
                         </div>
                     </div>
                 </article>
@@ -221,8 +225,8 @@
     <script>
         const farmGreen = "#005333";
         const farmGold = "#f9d000";
-        const TICK_MS = 5000;
-        const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
+        const TICK_MS = 15000; // Refresh every 15 seconds
+        const API_BASE = ""; // Empty string ensures relative path fetches correctly on Render
 
         const pad = (n) => String(n).padStart(2, "0");
         const toDateString = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -302,17 +306,21 @@
             const status = document.getElementById(statusId);
             const tone = isBottleneck ? "danger" : "success";
             document.getElementById(valueId).textContent = Number(value).toLocaleString();
-            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
-            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
-            status.classList.remove("bg-success", "bg-danger");
-            status.classList.add(`bg-${tone}`);
-            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+            if(card) {
+                card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
+                card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
+            }
+            if(status) {
+                status.classList.remove("bg-success", "bg-danger");
+                status.classList.add(`bg-${tone}`);
+                status.textContent = isBottleneck ? "Bottleneck" : "On track";
+            }
         }
 
         function fillTable(tableId, rows, columns, emptyText) {
             const body = document.querySelector(`#${tableId} tbody`);
             body.replaceChildren();
-            if (!rows.length) {
+            if (!rows || !rows.length) {
                 const tr = body.insertRow();
                 const td = tr.insertCell();
                 td.colSpan = columns.length;
@@ -333,16 +341,28 @@
             const k = data.kpis;
             updateKpi("harvestKpi", "harvestValue", "harvestStatus", k.harvestedToday, k.harvestedToday < 100);
             updateKpi("transportKpi", "transportValue", "transportStatus", k.awaitingTransport, k.awaitingTransport > 0);
-            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus", k.shiftEnd, k.shiftEnd > 0);
+            
+            // Handle Harvest Rate KPI
+            document.getElementById("harvestRateValue").textContent = k.harvestRate ? Number(k.harvestRate).toFixed(2) : "0.00";
 
-            harvestChart.data.labels = data.harvestChart.labels;
-            harvestChart.data.datasets[0].data = data.harvestChart.values;
+            // Chart 1: Harvest by Team (uses operations or shiftOverview)
+            if (data.shiftOverview && data.shiftOverview.length > 0) {
+                harvestChart.data.labels = data.shiftOverview.map(s => s.leader || "Unknown");
+                harvestChart.data.datasets[0].data = data.shiftOverview.map(s => s.crates || 0);
+            } else {
+                harvestChart.data.labels = [];
+                harvestChart.data.datasets[0].data = [];
+            }
             harvestChart.update();
 
-            destinationChart.data.labels = data.destinationChart.labels;
-            destinationChart.data.datasets[0].data = data.destinationChart.values;
+            // Chart 2: Destinations
+            if (data.destinationLabels && data.destinationValues) {
+                destinationChart.data.labels = data.destinationLabels;
+                destinationChart.data.datasets[0].data = data.destinationValues;
+            }
             destinationChart.update();
 
+            // Tables
             fillTable("shiftOverviewTable", data.shiftOverview,
                 ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
                 "No shifts recorded for this selection.");
@@ -383,7 +403,7 @@
             try {
                 data = JSON.parse(await response.text());
             } catch (e) {
-                throw new Error(`the server sent an error page (HTTP ${response.status}) instead of data. Check the Render logs.`);
+                throw new Error(`the server sent an error page. Check the Render logs.`);
             }
             if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
             return data;
@@ -404,15 +424,15 @@
 
         document.getElementById("filterForm").addEventListener("submit", (e) => {
             e.preventDefault();
-            loadDashboardData(true);
+            loadDashboardData();
         });
-        blockSelect.addEventListener("change", () => loadDashboardData(true));
-        dateInput.addEventListener("change", () => loadDashboardData(true));
+        blockSelect.addEventListener("change", () => loadDashboardData());
+        dateInput.addEventListener("change", () => loadDashboardData());
 
         setInterval(() => { if (!document.hidden) loadDashboardData(); }, TICK_MS);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(); });
 
-        loadDashboardData(true);
+        loadDashboardData();
     </script>
 </body>
 </html>
